@@ -85,39 +85,36 @@ fn execute_vote(
 ) -> Result<Response, ContractError> {
     let poll = POLL.may_load(deps.storage, poll_id.clone())?;
 
-    match poll {
-        Some(mut poll) => {
-            BALLOT.update(
-                deps.storage,
-                (info.sender, poll_id.clone()),
-                |ballot| -> StdResult<Ballot> {
-                    match ballot {
-                        Some(ballot) => {
-                            let position_of_old_vote = poll
-                                .options
-                                .iter()
-                                .position(|option| option.0 == ballot.option)
-                                .unwrap();
-                            poll.options[position_of_old_vote].1 -= 1;
-                            Ok(Ballot {
-                                option: vote.clone(),
-                            })
-                        }
-                        None => Ok(Ballot {
+    if let Some(mut poll) = poll {
+        BALLOT.update(
+            deps.storage,
+            (info.sender, poll_id.clone()),
+            |ballot| -> StdResult<Ballot> {
+                match ballot {
+                    Some(ballot) => {
+                        let position_of_old_vote = poll
+                            .options
+                            .iter()
+                            .position(|option| option.0 == ballot.option)
+                            .unwrap();
+                        poll.options[position_of_old_vote].1 -= 1;
+                        Ok(Ballot {
                             option: vote.clone(),
-                        }),
+                        })
                     }
-                },
-            )?;
-            let position = poll
-                .options
-                .iter()
-                .position(|option| option.0 == vote)
-                .unwrap();
-            poll.options[position].1 += 1;
-            POLL.save(deps.storage, poll_id, &poll)?;
-        }
-        None => (),
+                    None => Ok(Ballot {
+                        option: vote.clone(),
+                    }),
+                }
+            },
+        )?;
+        let position = poll
+            .options
+            .iter()
+            .position(|option| option.0 == vote)
+            .unwrap();
+        poll.options[position].1 += 1;
+        POLL.save(deps.storage, poll_id, &poll)?;
     };
     Ok(Response::new())
 }
