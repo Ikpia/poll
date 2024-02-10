@@ -115,8 +115,12 @@ fn execute_vote(
             .unwrap();
         poll.options[position].1 += 1;
         POLL.save(deps.storage, poll_id, &poll)?;
-    };
-    Ok(Response::new().add_attribute("action", "vote in poll"))
+        return Ok(Response::new().add_attribute("action", "vote in poll"));
+    } else {
+        return Err(ContractError::CustomError {
+            val: "Poll not found".to_string(),
+        });
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -149,8 +153,8 @@ fn query_vote(deps: Deps, _env: Env, address: String, poll_id: String) -> StdRes
 
 #[cfg(test)]
 mod tests {
-    use crate::contract::{execute_create_poll, instantiate};
-    use crate::msg::InstantiateMsg;
+    use crate::contract::{execute, execute_create_poll, instantiate};
+    use crate::msg::{ExecuteMsg, InstantiateMsg};
     use cosmwasm_std::attr;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 
@@ -173,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_vote() {
+    fn test_execute_create_poll() {
         let mut deps = mock_dependencies();
         let env = mock_env();
         let info = mock_info("addr1", &[]);
@@ -194,5 +198,44 @@ mod tests {
         let resp =
             execute_create_poll(deps.as_mut(), env, info, poll_id, question, options).unwrap();
         assert_eq!(resp.attributes, vec![attr("action", "create poll")])
+    }
+
+    #[test]
+    fn test_execute_vote() {
+        let mut deps = mock_dependencies();
+        let info = mock_info("addr1", &[]);
+        let env = mock_env();
+        let msg = InstantiateMsg {
+            admin: Some("addr1".to_string()),
+        };
+        let resp = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        assert_eq!(
+            resp.attributes,
+            vec![
+                attr("action", "instantiate"),
+                attr("addr1".to_string(), "addr1".to_string())
+            ]
+        );
+
+        let poll_id = "1".to_string();
+        let question = "Should We Have a Meeting Today".to_string();
+        let options = vec![String::from("Yes"), String::from("No")];
+        let resp = execute_create_poll(
+            deps.as_mut(),
+            env.clone(),
+            info.clone(),
+            poll_id,
+            question,
+            options,
+        )
+        .unwrap();
+        assert_eq!(resp.attributes, vec![attr("action", "create poll")]);
+
+        let msg = ExecuteMsg::Vote {
+            poll_id: "1".to_string(),
+            vote: "No".to_string(),
+        };
+        let resp = execute(deps.as_mut(), env, info, msg).unwrap();
+        assert_eq!(resp.attributes, vec![attr("action", "vote in poll")])
     }
 }
