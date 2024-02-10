@@ -153,10 +153,11 @@ fn query_vote(deps: Deps, _env: Env, address: String, poll_id: String) -> StdRes
 
 #[cfg(test)]
 mod tests {
-    use crate::contract::{execute, execute_create_poll, instantiate};
-    use crate::msg::{ExecuteMsg, InstantiateMsg};
-    use cosmwasm_std::attr;
+    use crate::contract::{execute, execute_create_poll, instantiate, query};
+    use crate::msg::{ExecuteMsg, InstantiateMsg, PollResponse, QueryMsg};
+    use crate::state::Poll;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::{attr, from_binary, Addr};
 
     #[test]
     fn test_instantiate() {
@@ -237,5 +238,47 @@ mod tests {
         };
         let resp = execute(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(resp.attributes, vec![attr("action", "vote in poll")])
+    }
+
+    #[test]
+    fn test_query_poll() {
+        let mut deps = mock_dependencies();
+        let info = mock_info("addr1", &[]);
+        let env = mock_env();
+        let msg = InstantiateMsg {
+            admin: Some("addr1".to_string()),
+        };
+        let resp = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+        assert_eq!(
+            resp.attributes,
+            vec![
+                attr("action", "instantiate"),
+                attr("addr1".to_string(), "addr1".to_string())
+            ]
+        );
+        let poll_id = "1".to_string();
+        let question = "Should We Have a Meeting Today".to_string();
+        let options = vec![String::from("Yes"), String::from("No")];
+        let resp =
+            execute_create_poll(deps.as_mut(), env.clone(), info, poll_id, question, options)
+                .unwrap();
+        assert_eq!(resp.attributes, vec![attr("action", "create poll")]);
+
+        let msg = QueryMsg::Poll {
+            poll_id: "1".to_string(),
+        };
+
+        let resp = query(deps.as_ref(), env, msg).unwrap();
+        let get_poll: PollResponse = from_binary(&resp).unwrap();
+        assert_eq!(
+            get_poll,
+            PollResponse {
+                poll: Some(Poll {
+                    admin: Addr::unchecked("addr1"),
+                    question: "Should We Have a Meeting Today".to_string(),
+                    options: vec![(String::from("Yes"), 0), (String::from("No"), 0)],
+                })
+            }
+        );
     }
 }
