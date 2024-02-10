@@ -115,11 +115,11 @@ fn execute_vote(
             .unwrap();
         poll.options[position].1 += 1;
         POLL.save(deps.storage, poll_id, &poll)?;
-        return Ok(Response::new().add_attribute("action", "vote in poll"));
+        Ok(Response::new().add_attribute("action", "vote in poll"))
     } else {
-        return Err(ContractError::CustomError {
+        Err(ContractError::CustomError {
             val: "Poll not found".to_string(),
-        });
+        })
     }
 }
 
